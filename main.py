@@ -183,7 +183,7 @@ class mpii_data_set(utils.Dataset):
         annotations = self.image_info[image_id]["annotations"]
         # Build mask of shape [height, width, instance_count] and list
         # of class IDs that correspond to if ist a person or not.
-        human_nums = len(annotations['numPeople'])
+        human_nums = annotations['numPeople']
         m = np.zeros([human_nums, annotations['width'], annotations['height'], NUM_JOINTS])
         class_mask = np.zeros([human_nums, NUM_JOINTS])
         # For every human annotations.
