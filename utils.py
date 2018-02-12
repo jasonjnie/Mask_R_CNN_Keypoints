@@ -239,8 +239,8 @@ class Dataset(object):
 
     def add_image(self, source, image_id, path, **kwargs):
         image_info = {
-            "id": image_id,
-            "source": source,
+            "id": image_id,         # index in train/val dataset
+            "source": source,       # MPII/JHMDB
             "path": path,
         }
         image_info.update(kwargs)
@@ -273,10 +273,13 @@ class Dataset(object):
         self._image_ids = np.arange(self.num_images)
 
         self.class_from_source_map = {"{}.{}".format(info['source'], info['id']): id
-                                      for info, id in zip(self.class_info, self.class_ids)}
+                                      for info, id in zip(self.class_info, self.class_ids)}     #['BG.0', 'person.1']
+
+        # self.class_info = [{"source": "", "id": 0, "name": "BG"}, {"source": "MPII", "id": 1, "name": "person"}]
+        # self.class_from_source_map = {".0":0, "MPII.1":1}
 
         # Map sources to class_ids they support
-        self.sources = list(set([i['source'] for i in self.class_info]))
+        self.sources = list(set([i['source'] for i in self.class_info]))    # ["", "MPII"]
         self.source_class_ids = {}
         # Loop over datasets
         for source in self.sources:
