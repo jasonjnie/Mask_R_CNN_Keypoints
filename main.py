@@ -143,7 +143,7 @@ class mpii_data_set(utils.Dataset):
             if subset == 'train' and orig_annotation[i]['isVal'] == 0 or subset == 'val' and orig_annotation[i]['isVal'] == 1:
                 annotation.append(orig_annotation[i])
         N = len(annotation)
-        print('Num of {} ='.format(subset, N))
+        print('Num of {} = {}'.format(subset, N))
 
         # All classes
         # The class IDs start from 1, since the 0 belongs to the background class
@@ -184,7 +184,7 @@ class mpii_data_set(utils.Dataset):
         # Build mask of shape [height, width, instance_count] and list
         # of class IDs that correspond to if ist a person or not.
         human_nums = annotations['numPeople']
-        m = np.zeros([human_nums, annotations['width'], annotations['height'], NUM_JOINTS])
+        m = np.zeros([human_nums, int(annotations['width']), int(annotations['height']), NUM_JOINTS])
         class_mask = np.zeros([human_nums, NUM_JOINTS])
         # For every human annotations.
         for human_num in range(human_nums):
