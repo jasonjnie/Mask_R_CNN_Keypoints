@@ -1,10 +1,10 @@
 import scipy.io as sio
 import numpy as np
 
-A = np.arange(15).reshape(5,3)
-print(A)
-for i, j in enumerate(A):
-    print(i, j)
+for i in range(11):
+    if i % 3 == 0:
+        i -= 1
+    print(i)
 
 
 

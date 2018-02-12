@@ -7,11 +7,11 @@ import tensorflow as tf
 import scipy.io as sio
 import json
 
-from Mask_R_CNN_Keypoints.config import Config
-from Mask_R_CNN_Keypoints import utils as utils
-from Mask_R_CNN_Keypoints import model as modellib
-from Mask_R_CNN_Keypoints import visualize
-from Mask_R_CNN_Keypoints.model import log
+from config import Config
+import utils as utils
+import model as modellib
+import visualize
+from model import log
 
 mpii_class_names_ = ['right_ankle', 'right_knee', 'right_hip', 'left_hip', 'left_knee',  'left_ankle', 'pelvis',
                      'thorax', 'upper_neck', 'head_top', 'right_wrist', 'right_elbow', 'right_shoulder',
@@ -130,21 +130,18 @@ class mpii_data_set(utils.Dataset):
 
         json_file = 'res_.json'
         with open(json_file) as f:
-            annotation = json.load(f)   # a list
+            orig_annotation = json.load(f)   # a list
 
-        num_all = len(annotation)  # 16485
-        print('num of all imgs:', N)
-        keys = annotation[0].keys()  # ['isVal', 'joints', 'height', 'width', 'numPeople', 'path', 'annlist_index']
-        print(keys)
-        #temp = annotation[0]
+        num_all = len(orig_annotation)  # 16485
+        print('num of all imgs:', num_all)
+        keys = orig_annotation[0].keys()  # ['isVal', 'joints', 'height', 'width', 'numPeople', 'path', 'annlist_index']
+        #print(keys)
+        #temp = orig_annotation[0]
         #print(temp)
+        annotation = []
         for i in range(num_all):
-            if subset == 'train':
-                if annotation[i]['isVal']:
-                    annotation.pop(i)
-            elif subset == 'val':
-                if not annotation[i]['isVal']:
-                    annotation.pop(i)
+            if subset == 'train' and orig_annotation[i]['isVal'] == 0 or subset == 'val' and orig_annotation[i]['isVal'] == 1:
+                annotation.append(orig_annotation[i])
         N = len(annotation)
         print('Num of {} ='.format(subset, N))
 
@@ -159,7 +156,7 @@ class mpii_data_set(utils.Dataset):
         # Add images
         for i in range(N):
             #annotations = annotation_file.iloc[i]
-            im_path = os.path.join(image_dir, annotation[i][path])
+            im_path = os.path.join(image_dir, annotation[i]['path'])
             self.add_image("MPII", image_id=i, path=im_path,
                            width=annotation[i]['width'], height=annotation[i]['height'],
                            annotations=annotation[i])
@@ -362,9 +359,11 @@ def main():
     image_id = np.random.choice(dataset_val.image_ids)
     image, image_meta, gt_bbox, gt_mask = modellib.load_image_gt(dataset_val, config, image_id,
                                                                  use_mini_mask=False, augment=False)
+
+    """
     # visualize.draw_boxes(image, refined_boxes=gt_bbox[:, :4], masks=gt_mask)
     visualize.draw_mpii_boxes(image, refined_boxes=gt_bbox[:, :4], masks=gt_mask, bp=mpii_class_names_)
-    plt.show()
+    plt.imsave('boxes.png')
 
     #################################
     # LOAD MODEL
@@ -432,7 +431,7 @@ def main():
     plot_mask_points(dataset_val, inference_config, model)
 
     print('finished')
-
+    """
 
 if __name__ == '__main__':
     main()
