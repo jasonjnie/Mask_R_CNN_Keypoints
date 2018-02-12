@@ -30,6 +30,7 @@ from distutils.version import LooseVersion
 assert LooseVersion(tf.__version__) >= LooseVersion("1.3")
 assert LooseVersion(keras.__version__) >= LooseVersion('2.0.8')
 
+NUM_JOINTS = 16
 
 ############################################################
 #  Utility Functions
@@ -423,7 +424,7 @@ def detection_targets_graph(proposals, gt_boxes, gt_masks, config):
                be zero padded if there are not enough proposals.
     gt_boxes: [MAX_GT_INSTANCES, (y1, x1, y2, x2, class_id)] in
               normalized coordinates.
-    gt_masks: [MAX_GT_INSTANCES, height, width, 14(body parts)] of boolean type.
+    gt_masks: [MAX_GT_INSTANCES, height, width, 16(body parts)] of boolean type.
 
     Returns: Target ROIs and corresponding class IDs, bounding box shifts,
     and masks.
@@ -556,7 +557,7 @@ class DetectionTargetLayer(KE.Layer):
                be zero padded if there are not enough proposals.
     gt_boxes: [batch, MAX_GT_INSTANCES, (y1, x1, y2, x2, class_id)] in
               normalized coordinates.
-    gt_masks: [batch, MAX_GT_INSTANCES, height, width, 14(body parts)] of boolean type
+    gt_masks: [batch, MAX_GT_INSTANCES, height, width, 16(body parts)] of boolean type
 
     Returns: Target ROIs and corresponding class IDs, bounding box shifts,
     and masks.
@@ -598,8 +599,8 @@ class DetectionTargetLayer(KE.Layer):
             (None, 1),  # class_ids
             (None, self.config.TRAIN_ROIS_PER_IMAGE, 4),  # deltas
             (None, self.config.TRAIN_ROIS_PER_IMAGE, self.config.MASK_SHAPE[0],
-             self.config.MASK_SHAPE[1], 14),  # masks
-            (None, self.config.TRAIN_ROIS_PER_IMAGE, 14)  # class_ids
+             self.config.MASK_SHAPE[1], NUM_JOINTS),  # masks
+            (None, self.config.TRAIN_ROIS_PER_IMAGE, NUM_JOINTS)  # class_ids
         ]
 
     def compute_mask(self, inputs, mask=None):
@@ -848,9 +849,9 @@ def fpn_classifier_graph(rois, feature_maps, image_shape, pool_size, num_classes
     mrcnn_bbox = KL.Reshape((s[1], num_classes, 4), name="mrcnn_bbox")(x)
 
     # classifier head mask
-    x = KL.TimeDistributed(KL.Dense(14 * 3, activation='linear'), name='mask_class_fc')(shared)
+    x = KL.TimeDistributed(KL.Dense(NUM_JOINTS * 3, activation='linear'), name='mask_class_fc')(shared)
     s = K.int_shape(x)
-    mrcnn_class_mask = KL.Reshape((s[1], 14, 3), name='mrcnn_class_mask')(x)
+    mrcnn_class_mask = KL.Reshape((s[1], NUM_JOINTS, 3), name='mrcnn_class_mask')(x)
 
     return mrcnn_class_logits, mrcnn_probs, mrcnn_bbox, mrcnn_class_mask
 
@@ -889,7 +890,7 @@ def build_fpn_mask_graph(rois, feature_maps,
 
     x = KL.TimeDistributed(KL.Conv2DTranspose(256, (2, 2), strides=2, activation="relu"), name="mrcnn_mask_deconv")(x)
 
-    x = KL.TimeDistributed(KL.Conv2D(14, (1, 1), strides=1, activation="sigmoid"), name="mrcnn_mask")(x)
+    x = KL.TimeDistributed(KL.Conv2D(NUM_JOINTS, (1, 1), strides=1, activation="sigmoid"), name="mrcnn_mask")(x)
     # x = KL.TimeDistributed(KL.Conv2D(num_classes, (1, 1), strides=1, activation="sigmoid"), name="mrcnn_mask")(x)
     return x
 
@@ -1000,15 +1001,15 @@ def mrcnn_class_loss_graph(target_class_ids, pred_class_logits, active_class_ids
 def mask_class_loss_graph(target_mask_class, pred_class, target_class_ids):
     """Loss for Mask class R-CNN whether key points are in picture.
 
-        target_mask_class: [batch, num_rois, 14(number of keypoints)]
+        target_mask_class: [batch, num_rois, 16(number of keypoints)]
         pred_class: [batch, num_rois, num_classes, 3]
         target_class_ids: [batch, num_rois]. Integer class IDs.
     """
     # Reshape to merge batch and roi dimensions for simplicity.
     target_mask_class = tf.cast(target_mask_class, tf.int64)
     target_class_ids = K.reshape(target_class_ids, (-1,))
-    pred_class = K.reshape(pred_class, (-1, 14, K.int_shape(pred_class)[3]))
-    target_mask_class = tf.cast(K.reshape(target_mask_class, (-1, 14)), tf.int64)
+    pred_class = K.reshape(pred_class, (-1, NUM_JOINTS, K.int_shape(pred_class)[3]))
+    target_mask_class = tf.cast(K.reshape(target_mask_class, (-1, NUM_JOINTS)), tf.int64)
 
     positive_roi_ix = tf.where(target_class_ids > 0)[:, 0]
 
@@ -1073,16 +1074,16 @@ def mrcnn_mask_loss_graph(target_masks, target_class_ids, pred_masks):
 
     positive_ix = tf.where(target_class_ids > 0)[:, 0]
 
-    # Predicted masks and target masks are reshaped in [N, height*width, 14 (body parts)]
+    # Predicted masks and target masks are reshaped in [N, height*width, 16 (body parts)]
     # mask_shape = tf.shape(target_masks)
-    target_masks = K.reshape(target_masks, (-1, 28 * 28, 14))
-    pred_masks = K.reshape(pred_masks, (-1, 28 * 28, 14))
+    target_masks = K.reshape(target_masks, (-1, 28 * 28, NUM_JOINTS))
+    pred_masks = K.reshape(pred_masks, (-1, 28 * 28, NUM_JOINTS))
 
     # Gather the masks (predicted and true) that contribute to loss
     y_true = tf.gather(target_masks, positive_ix)
     y_pred = tf.gather(pred_masks, positive_ix)
 
-    # compute the loss function in second dimmention (28*28), result = [N, 14]
+    # compute the loss function in second dimmention (28*28), result = [N, 16]
     loss = K.switch(tf.size(y_true) > 0,
                     tf.nn.softmax_cross_entropy_with_logits(logits=y_pred, labels=y_true, dim=1),
                     tf.constant(0.0))
@@ -1143,7 +1144,7 @@ def load_image_gt(dataset, config, image_id, augment=False, use_mini_mask=False)
 
     # Add class_id as the last value in bbox
     human_num = len(dataset.image_info[image_id]['annotations']['human_annotations'])
-    bbox = np.zeros([human_num, 5 + 14])
+    bbox = np.zeros([human_num, 5 + NUM_JOINTS])
     # bbox = np.zeros([human_num, 5])
     # h_num = human key number
     for h_num in range(human_num):
@@ -1170,7 +1171,7 @@ def load_image_gt(dataset, config, image_id, augment=False, use_mini_mask=False)
 
     # Resize masks to smaller size to reduce memory usage
     if use_mini_mask:
-        buffer_mask = np.zeros([mask.shape[0], config.MINI_MASK_SHAPE[0], config.MINI_MASK_SHAPE[1], 14])
+        buffer_mask = np.zeros([mask.shape[0], config.MINI_MASK_SHAPE[0], config.MINI_MASK_SHAPE[1], NUM_JOINTS])
         for i in range(mask.shape[0]):
             buffer_mask[i] = utils.minimize_mask_2(bbox[i, :5].reshape([1, 5]), mask[i], config.MINI_MASK_SHAPE)
             # buffer_mask[i] = utils.minimize_mask(bbox[i, :5].reshape([1, 5]), mask[i], config.MINI_MASK_SHAPE)
@@ -1188,7 +1189,7 @@ def build_detection_targets(rpn_rois, gt_boxes, gt_masks, config):
     Inputs:
     rpn_rois: [N, (y1, x1, y2, x2)] proposal boxes.
     gt_boxes: [instance count, (y1, x1, y2, x2, class_id)]
-    gt_masks: [instance count, height, width, 14] Grund truth masks. Can be full
+    gt_masks: [instance count, height, width, 16] Grund truth masks. Can be full
               size or mini-masks.
 
     Returns:
@@ -1309,7 +1310,7 @@ def build_detection_targets(rpn_rois, gt_boxes, gt_masks, config):
             gt_h = gt_y2 - gt_y1
             # Resize mini mask to size of GT box
             placeholder[gt_y1:gt_y2, gt_x1:gt_x2] = \
-                np.round(scipy.misc.imresize(class_mask.astype(float), (gt_h, gt_w, 14),
+                np.round(scipy.misc.imresize(class_mask.astype(float), (gt_h, gt_w, NUM_JOINTS),
                                              interp='nearest') / 255.0).astype(bool)
             # Place the mini batch in the placeholder
             class_mask = placeholder
@@ -1577,12 +1578,12 @@ def data_generator(dataset, config, shuffle=True, augment=False, random_rois=0,
                 batch_rpn_bbox = np.zeros([batch_size, config.RPN_TRAIN_ANCHORS_PER_IMAGE, 4], dtype=rpn_bbox.dtype)
                 batch_images = np.zeros((batch_size,) + image.shape, dtype=np.float32)
                 # batch_gt_boxes = np.zeros((batch_size, config.MAX_GT_INSTANCES, 5), dtype=np.int32)
-                batch_gt_boxes = np.zeros((batch_size, config.MAX_GT_INSTANCES, 19), dtype=np.int32)
+                batch_gt_boxes = np.zeros((batch_size, config.MAX_GT_INSTANCES, 5+NUM_JOINTS), dtype=np.int32)
                 if config.USE_MINI_MASK:
                     batch_gt_masks = np.zeros((batch_size, config.MAX_GT_INSTANCES,
-                                               config.MINI_MASK_SHAPE[0], config.MINI_MASK_SHAPE[1], 14))
+                                               config.MINI_MASK_SHAPE[0], config.MINI_MASK_SHAPE[1], NUM_JOINTS))
                 else:
-                    batch_gt_masks = np.zeros((batch_size, config.MAX_GT_INSTANCES, image.shape[0], image.shape[1], 14))
+                    batch_gt_masks = np.zeros((batch_size, config.MAX_GT_INSTANCES, image.shape[0], image.shape[1], NUM_JOINTS))
                 if random_rois:
                     batch_rpn_rois = np.zeros((batch_size, rpn_rois.shape[0], 4), dtype=rpn_rois.dtype)
                     if detection_targets:
@@ -1596,7 +1597,7 @@ def data_generator(dataset, config, shuffle=True, augment=False, random_rois=0,
             if gt_boxes.shape[0] > config.MAX_GT_INSTANCES:
                 ids = np.random.choice(np.arange(gt_boxes.shape[0]), config.MAX_GT_INSTANCES, replace=False)
                 gt_boxes = gt_boxes[ids, :]
-                gt_masks = gt_masks[ids, :, :, :14]
+                gt_masks = gt_masks[ids, :, :, :NUM_JOINTS]
 
             # Add to batch
             batch_image_meta[b] = image_meta

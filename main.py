@@ -184,14 +184,14 @@ class mpii_data_set(utils.Dataset):
         # Build mask of shape [height, width, instance_count] and list
         # of class IDs that correspond to if ist a person or not.
         human_nums = annotations['numPeople']
-        m = np.zeros([human_nums, int(annotations['width']), int(annotations['height']), NUM_JOINTS])
+        m = np.zeros([human_nums, int(annotations['height']), int(annotations['width']), NUM_JOINTS])
         class_mask = np.zeros([human_nums, NUM_JOINTS])
         # For every human annotations.
         for human_num in range(human_nums):
             annotation = np.reshape(annotations['joints'][human_num], (NUM_JOINTS, 3))
             for part_num, bp in enumerate(annotation):      # bp = [width, height, 0/1]
                 if bp[2] < 2:
-                    m[human_num, int(bp[0]), int(bp[1]), part_num] = 1
+                    m[human_num, int(bp[1]), int(bp[0]), part_num] = 1
                 class_mask[human_num, part_num] = bp[2]
             class_ids.append(1)
 
