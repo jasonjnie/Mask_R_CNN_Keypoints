@@ -1143,7 +1143,7 @@ def load_image_gt(dataset, config, image_id, augment=False, use_mini_mask=False)
             mask = buffer_mask
 
     # Add class_id as the last value in bbox
-    human_num = len(dataset.image_info[image_id]['annotations']['numPeople'])
+    human_num = dataset.image_info[image_id]['annotations']['numPeople']
     bbox = np.zeros([human_num, 5 + NUM_JOINTS])
     # bbox = np.zeros([human_num, 5])
     # h_num = human key number
