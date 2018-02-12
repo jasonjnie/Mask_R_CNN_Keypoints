@@ -14,6 +14,8 @@ import scipy.misc
 import skimage.color
 
 
+NUM_JOINTS = 16
+
 ############################################################
 #  Bounding Boxes
 ############################################################
@@ -429,9 +431,9 @@ def resize_mask(mask, scale, padding):
 
 def resize_keypoints(mask, new_size, scale, padding):
 
-    final_mask = np.zeros(np.append(new_size, 14))
+    final_mask = np.zeros(np.append(new_size, NUM_JOINTS))
 
-    for i in range(14):
+    for i in range(NUM_JOINTS):
         cord = np.asarray(np.where(mask[:, :, i] == 1))
         if cord.shape[1] > 0:
             cord = cord.reshape(2,)
@@ -462,11 +464,11 @@ def minimize_mask(bbox, mask, mini_shape):
             cord = np.array(np.where(m == m.max()))[:, 0]
             mini_mask[cord[0], cord[1], i] = 1
 
-    # for i in range(0, mask.shape[-1], 14):
-    #     m = mask[:, :, i:i + 14]
-    #     y1, x1, y2, x2 = bbox[i//14][:4]
+    # for i in range(0, mask.shape[-1], NUM_JOINTS):
+    #     m = mask[:, :, i:i + NUM_JOINTS]
+    #     y1, x1, y2, x2 = bbox[i//NUM_JOINTS][:4]
     #     m = m[y1:y2, x1:x2, :]
-    #     for ii in range(14):
+    #     for ii in range(NUM_JOINTS):
     #         pre_mask = scipy.misc.imresize(m[:, :, ii].astype(float), mini_shape, interp='bilinear')
     #         if pre_mask.max() > 0:
     #             coo = np.where(pre_mask == pre_mask.max())
@@ -504,13 +506,13 @@ def expand_mask(bbox, mini_mask, image_shape):
     See inspect_data.ipynb notebook for more details.
     """
     mask = np.zeros(image_shape[:2] + (mini_mask.shape[-1],), dtype=bool)
-    for i in range(0, mask.shape[-1], 14):
-        m = mini_mask[:, :, i:i + 14]
+    for i in range(0, mask.shape[-1], NUM_JOINTS):
+        m = mini_mask[:, :, i:i + NUM_JOINTS]
         y1, x1, y2, x2 = bbox[i][:4]
         h = y2 - y1
         w = x2 - x1
         m = scipy.misc.imresize(m.astype(float), (h, w), interp='bilinear')
-        mask[y1:y2, x1:x2, i:i + 14] = np.where(m >= 128, 1, 0)
+        mask[y1:y2, x1:x2, i:i + NUM_JOINTS] = np.where(m >= 128, 1, 0)
     return mask
 
 
