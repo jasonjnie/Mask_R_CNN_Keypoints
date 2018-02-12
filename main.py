@@ -285,7 +285,8 @@ def plot_mask_points(dataset, config, model, filter=True, image_id=None):
     for i in range(4):
         axx[2, i].set_title(mpii_class_names_[10 + i])
         axx[2, i].imshow(gt_mask[0, :, :, 10 + i], interpolation='none')
-    plt.show()
+    #plt.show()
+    plt.imsave('output.png')
 
 
 def main():
