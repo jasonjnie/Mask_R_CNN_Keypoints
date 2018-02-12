@@ -1143,13 +1143,13 @@ def load_image_gt(dataset, config, image_id, augment=False, use_mini_mask=False)
             mask = buffer_mask
 
     # Add class_id as the last value in bbox
-    human_num = len(dataset.image_info[image_id]['annotations']['human_annotations'])
+    human_num = len(dataset.image_info[image_id]['annotations']['numPeople'])
     bbox = np.zeros([human_num, 5 + NUM_JOINTS])
     # bbox = np.zeros([human_num, 5])
     # h_num = human key number
     for h_num in range(human_num):
         # resize bounding boxes
-        temp_bbox = dataset.image_info[image_id]['annotations']['human_annotations']['human{}'.format(1 + h_num)]
+        temp_bbox = dataset.image_info[image_id]['annotations']['numPeople']['joints'][h_num]
         temp_bbox = np.asarray(temp_bbox) * scale
         temp_bbox[list([0, 2])] = temp_bbox[list([0, 2])] + padding[1][0]
         temp_bbox[list([1, 3])] = temp_bbox[list([1, 3])] + padding[0][0]
