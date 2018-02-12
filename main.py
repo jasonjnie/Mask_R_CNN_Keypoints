@@ -191,7 +191,7 @@ class mpii_data_set(utils.Dataset):
             annotation = np.reshape(annotations['joints'][human_num], (NUM_JOINTS, 3))
             for part_num, bp in enumerate(annotation):      # bp = [width, height, 0/1]
                 if bp[2] < 2:
-                    m[human_num, bp[0], bp[1], part_num] = 1
+                    m[human_num, int(bp[0]), int(bp[1]), part_num] = 1
                 class_mask[human_num, part_num] = bp[2]
             class_ids.append(1)
 
